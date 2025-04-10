@@ -330,7 +330,7 @@ def create_dashboard():
     with tab2:
         st.subheader("Temporal Crime Analysis")
         
-        # First row - Existing visualizations
+        # First row - Main trends
         col1, col2 = st.columns(2)
         with col1:
             trend_analysis = create_crime_trend_analysis(data['violent_crimes'])
@@ -362,68 +362,138 @@ def create_dashboard():
             else:
                 st.write("Year-wise data not available for comparison")
 
-        # Second row - New temporal visualizations
-        row2_cols = st.columns(2)
-        with row2_cols[0]:
-            # Monthly crime pattern
-            if 'Month' in data['violent_crimes'].columns:
-                monthly_crimes = data['violent_crimes'].groupby('Month')[analysis_col].mean()
-                fig = px.line(
-                    monthly_crimes,
-                    title="Monthly Crime Patterns",
-                    labels={'value': 'Average Crimes'}
-                )
-                st.plotly_chart(fig, use_container_width=True)
+        # New row - Additional temporal analysis
+        st.subheader("Advanced Temporal Analysis")
+        temporal_cols = st.columns(2)
         
-        with row2_cols[1]:
-            # Crime type evolution - handle case when Year is not present
-            if 'Year' in data['ipc_crimes'].columns:
-                yearly_type_dist = data['ipc_crimes'].groupby('Year')[crime_cols].sum()
-                fig = px.area(
-                    yearly_type_dist,
-                    title="Evolution of Crime Types Over Years",
-                    labels={'value': 'Number of Crimes', 'variable': 'Crime Type'}
-                )
-            else:
-                # Create alternative visualization when Year is not available
-                crime_type_dist = data['ipc_crimes'][crime_cols].sum()
-                fig = px.bar(
-                    x=crime_type_dist.index,
-                    y=crime_type_dist.values,
-                    title="Distribution of Crime Types",
-                    labels={'x': 'Crime Type', 'y': 'Number of Cases'}
-                )
-            fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
+        with temporal_cols[0]:
+            # Cumulative crime trends
+            if data['violent_crimes'] is not None and 'Year' in data['violent_crimes'].columns:
+                numeric_cols = data['violent_crimes'].select_dtypes(include=[np.number]).columns
+                if len(numeric_cols) > 0:
+                    analysis_col = numeric_cols[-1]
+                    cumulative_data = data['violent_crimes'].groupby('Year')[analysis_col].sum().cumsum()
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=cumulative_data.index,
+                        y=cumulative_data.values,
+                        mode='lines+markers',
+                        name='Cumulative Total',
+                        fill='tonexty'
+                    ))
+                    fig.update_layout(
+                        title="Cumulative Crime Progression",
+                        xaxis_title="Year",
+                        yaxis_title="Cumulative Total Cases"
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
-        # Third row - Additional temporal insights
-        row3_cols = st.columns(2)
-        with row3_cols[0]:
-            # Seasonal decomposition
-            if 'Year' in data['violent_crimes'].columns:
-                from statsmodels.tsa.seasonal import seasonal_decompose
-                crimes_ts = data['violent_crimes'].groupby('Year')[analysis_col].sum()
-                decomposition = seasonal_decompose(crimes_ts, period=4, model='additive')
-                
-                fig = make_subplots(rows=3, cols=1,
-                                  subplot_titles=("Trend", "Seasonal", "Residual"))
-                fig.add_trace(go.Scatter(y=decomposition.trend), row=1, col=1)
-                fig.add_trace(go.Scatter(y=decomposition.seasonal), row=2, col=1)
-                fig.add_trace(go.Scatter(y=decomposition.resid), row=3, col=1)
-                fig.update_layout(height=600, title="Crime Trend Decomposition")
+        with temporal_cols[1]:
+            # Monthly/Seasonal distribution if available
+            if 'Month' in data['violent_crimes'].columns:
+                monthly_data = data['violent_crimes'].groupby('Month')[analysis_col].mean()
+                fig = px.line_polar(r=monthly_data.values, 
+                                  theta=monthly_data.index,
+                                  line_close=True,
+                                  title="Monthly Crime Distribution")
                 st.plotly_chart(fig, use_container_width=True)
+            else:
+                # Yearly distribution visualization
+                yearly_dist = data['violent_crimes'].groupby('Year')[analysis_col].sum()
+                fig = go.Figure()
+                fig.add_trace(go.Box(
+                    y=yearly_dist.values,
+                    name='Yearly Distribution'
+                ))
+                fig.update_layout(title="Yearly Crime Distribution")
+                st.plotly_chart(fig, use_container_width=True)
+
+        # Third row - Comparative analysis
+        st.subheader("Comparative Trend Analysis")
+        trend_cols = st.columns(2)
         
-        with row3_cols[1]:
-            # Rolling statistics
-            rolling_mean = crimes_ts.rolling(window=3).mean()
-            rolling_std = crimes_ts.rolling(window=3).std()
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(y=crimes_ts, name="Original"))
-            fig.add_trace(go.Scatter(y=rolling_mean, name="Rolling Mean"))
-            fig.add_trace(go.Scatter(y=rolling_std, name="Rolling Std"))
-            fig.update_layout(title="Rolling Statistics Analysis")
-            st.plotly_chart(fig, use_container_width=True)
+        with trend_cols[0]:
+            # Growth rate analysis
+            if data['violent_crimes'] is not None:
+                yearly_data = data['violent_crimes'].groupby('Year')[analysis_col].sum()
+                growth_rate = yearly_data.pct_change() * 100
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=growth_rate.index,
+                    y=growth_rate.values,
+                    mode='lines+markers',
+                    name='Growth Rate'
+                ))
+                fig.add_hline(y=0, line_dash="dash", line_color="red")
+                fig.update_layout(
+                    title="Year-over-Year Growth Rate",
+                    yaxis_title="Growth Rate (%)",
+                    showlegend=True
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        with trend_cols[1]:
+            # Moving averages comparison
+            if data['violent_crimes'] is not None:
+                yearly_data = data['violent_crimes'].groupby('Year')[analysis_col].sum()
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=yearly_data.index,
+                    y=yearly_data.values,
+                    mode='lines',
+                    name='Actual'
+                ))
+                fig.add_trace(go.Scatter(
+                    x=yearly_data.index,
+                    y=yearly_data.rolling(window=2).mean(),
+                    mode='lines',
+                    name='2-Year MA'
+                ))
+                fig.add_trace(go.Scatter(
+                    x=yearly_data.index,
+                    y=yearly_data.rolling(window=3).mean(),
+                    mode='lines',
+                    name='3-Year MA'
+                ))
+                fig.update_layout(
+                    title="Moving Average Comparison",
+                    xaxis_title="Year",
+                    yaxis_title="Number of Cases"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        # Add trend insights
+        st.subheader("📈 Trend Insights")
+        insight_cols = st.columns(3)
+        with insight_cols[0]:
+            if data['violent_crimes'] is not None:
+                latest_year = yearly_data.index.max()
+                latest_value = yearly_data.iloc[-1]
+                prev_value = yearly_data.iloc[-2]
+                change = ((latest_value - prev_value) / prev_value) * 100
+                st.metric("Latest Year Trend", 
+                         f"{latest_value:,.0f}",
+                         f"{change:+.1f}%")
+
+        with insight_cols[1]:
+            if data['violent_crimes'] is not None:
+                avg_last_3 = yearly_data.tail(3).mean()
+                avg_prev_3 = yearly_data.iloc[-6:-3].mean()
+                period_change = ((avg_last_3 - avg_prev_3) / avg_prev_3) * 100
+                st.metric("3-Year Average", 
+                         f"{avg_last_3:,.0f}",
+                         f"{period_change:+.1f}%")
+
+        with insight_cols[2]:
+            if data['violent_crimes'] is not None:
+                trend = "🔺 Increasing" if period_change > 0 else "🔻 Decreasing"
+                confidence = abs(period_change)
+                st.metric("Overall Trend", 
+                         trend,
+                         f"Confidence: {min(100, confidence):,.1f}%")
 
     with tab3:
         # Add interactive filters
