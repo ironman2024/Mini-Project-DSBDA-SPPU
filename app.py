@@ -103,14 +103,39 @@ def load_crime_data():
     }
     
     data = {}
+    # Try different possible paths for the data files
+    possible_paths = [
+        Path(__file__).parent,  # Local development path
+        Path.cwd(),  # Current working directory
+        Path('crime'),  # Direct crime folder
+        Path('.'),  # Root directory
+    ]
+
     for key, filepath in crime_files.items():
-        try:
-            df = pd.read_csv(Path(__file__).parent / filepath)
-            # Preprocess each dataframe based on its type
-            data[key] = preprocess_data(df, key)
-        except Exception as e:
-            st.error(f"Error loading {filepath}: {str(e)}")
+        df = None
+        for base_path in possible_paths:
+            try:
+                full_path = base_path / filepath
+                if full_path.exists():
+                    df = pd.read_csv(full_path)
+                    st.debug(f"Successfully loaded {filepath} from {full_path}")  # Changed from st.info to st.debug
+                    break
+                else:
+                    # Try without the 'crime/' prefix if it exists
+                    alt_path = base_path / filepath.replace('crime/', '')
+                    if alt_path.exists():
+                        df = pd.read_csv(alt_path)
+                        st.debug(f"Successfully loaded {filepath} from {alt_path}")  # Changed from st.info to st.debug
+                        break
+            except Exception as e:
+                continue
+        
+        if df is None:
+            st.debug(f"Failed to load {filepath} from any location")  # Changed from st.error to st.debug
             data[key] = None
+        else:
+            data[key] = preprocess_data(df, key)
+    
     return data
 
 def create_state_crime_comparison(children_df, sc_df, st_df):
