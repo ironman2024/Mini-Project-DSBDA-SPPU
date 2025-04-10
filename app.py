@@ -316,15 +316,33 @@ def create_dashboard():
             st.info("Note: Values are normalized for better visualization of patterns across different crime types")
         
         with row3_cols[1]:
-            # State clustering
-            from sklearn.preprocessing import StandardScaler
-            scaled_data = StandardScaler().fit_transform(crime_by_state)
-            fig = px.scatter(
-                x=scaled_data[:, 0],
-                y=scaled_data[:, 1],
-                text=crime_by_state.index,
-                title="State Clustering by Crime Patterns"
-            )
+            # State clustering with error handling for sklearn
+            try:
+                from sklearn.preprocessing import StandardScaler
+                scaled_data = StandardScaler().fit_transform(crime_by_state)
+                fig = px.scatter(
+                    x=scaled_data[:, 0],
+                    y=scaled_data[:, 1],
+                    text=crime_by_state.index,
+                    title="State Clustering by Crime Patterns"
+                )
+            except ImportError:
+                # Alternative visualization when sklearn is not available
+                # Create a simple scatter plot using raw data
+                crime_sums = crime_by_state.sum(axis=1)
+                crime_means = crime_by_state.mean(axis=1)
+                fig = px.scatter(
+                    x=crime_sums,
+                    y=crime_means,
+                    text=crime_by_state.index,
+                    title="State Crime Patterns (Total vs Average)",
+                    labels={
+                        'x': 'Total Crimes',
+                        'y': 'Average Crimes per Category'
+                    }
+                )
+                st.info("📌 Note: Install scikit-learn for advanced clustering analysis: `pip install scikit-learn`")
+            
             st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
