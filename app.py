@@ -203,16 +203,34 @@ def create_dashboard():
             st.metric("Crimes Against Children", "N/A")
     
     with metrics[2]:
-        if data['sc_crimes'] is not None and 'Total' in data['sc_crimes'].columns:
-            total_sc = data['sc_crimes']['Total'].sum()
-            st.metric("Crimes Against SC", f"{int(total_sc):,}")
+        if data['sc_crimes'] is not None:
+            # Get all numeric columns except 'Year' for SC crimes
+            numeric_cols = data['sc_crimes'].select_dtypes(include=[np.number]).columns
+            numeric_cols = [col for col in numeric_cols if col != 'Year']
+            if len(numeric_cols) > 0:
+                if 'Total' in numeric_cols:
+                    total_sc = data['sc_crimes']['Total'].sum()
+                else:
+                    total_sc = data['sc_crimes'][numeric_cols].sum().sum()
+                st.metric("Crimes Against SC", f"{int(total_sc):,}")
+            else:
+                st.metric("Crimes Against SC", "N/A")
         else:
             st.metric("Crimes Against SC", "N/A")
     
     with metrics[3]:
-        if data['st_crimes'] is not None and 'Total' in data['st_crimes'].columns:
-            total_st = data['st_crimes']['Total'].sum()
-            st.metric("Crimes Against ST", f"{int(total_st):,}")
+        if data['st_crimes'] is not None:
+            # Get all numeric columns except 'Year' for ST crimes
+            numeric_cols = data['st_crimes'].select_dtypes(include=[np.number]).columns
+            numeric_cols = [col for col in numeric_cols if col != 'Year']
+            if len(numeric_cols) > 0:
+                if 'Total' in numeric_cols:
+                    total_st = data['st_crimes']['Total'].sum()
+                else:
+                    total_st = data['st_crimes'][numeric_cols].sum().sum()
+                st.metric("Crimes Against ST", f"{int(total_st):,}")
+            else:
+                st.metric("Crimes Against ST", "N/A")
         else:
             st.metric("Crimes Against ST", "N/A")
 
