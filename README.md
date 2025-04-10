@@ -109,7 +109,7 @@ To make the Streamlit application accessible online, consider deploying it using
    - Select the repository and branch containing your `app.py`.
    - Click "Deploy."
 
-Your application will be live and accessible via a unique URL. citeturn0search1
+Your application will be live and accessible via a unique URL. 
 
 By following these steps, you can set up, run, and deploy the DSBDA Mini Project, enhancing your data analysis skills and sharing your work with others. 
 ## Code Explanation
